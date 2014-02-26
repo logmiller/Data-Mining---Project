@@ -1,0 +1,1 @@
+write.csv(mymatrix, "test.csv")

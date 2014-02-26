@@ -1,0 +1,591 @@
+setwd("C:/Users/Logan/Desktop")
+dataFile = "G4_STUDENT07.csv"
+read_file<-read.csv(dataFile,sep = ",", header = T)
+N <- dim(read_file)[1]
+d <- dim(read_file)[2]
+dimChoice<-matrix(0,d,1) 
+#dimNumbers<-matrix(0,d,1) 
+
+#Calculate the maximum demensions within the dataset to set matrices
+i<-1
+for(i in i:d)
+{  
+  choiceList <-unique(read_file[i])
+  #print(choiceList)
+  dimChoice[i]<-dim(choiceList)[1]
+}
+maxSize<-max(dimChoice[1:d]) #Age of Student <50>
+
+#Initial matrices
+groups<-matrix(0,maxSize,d)
+
+totalPerGroup<-matrix(0,1,d)
+countMatrix<-matrix(0,maxSize,d)
+probMatrix<-matrix(0,maxSize,d)
+#
+entropyMatrix<-matrix(0,1,d)
+giniIndexMatrix<-matrix(0,1,d)
+classifErrMatrix<-matrix(0,1,d)
+
+#Decision Tree
+
+#.....................................
+#Probability
+#.....................................
+
+#1.Determine all unique groups in data set
+
+i<-1
+for(i in i:d)
+{   
+  prob <-unique(read_file[i])  
+  t<-1
+  for (t in t:dimChoice[i])
+  {
+  probDF <- data.frame(prob)[t,1]
+  groups[t,i]<-probDF
+  }
+}
+
+#2. Count all unique groups within each column of data set
+#sum(read_file[,1]==1)
+i<-1
+for(i in i:d)
+{
+  t<-1
+  for(t in t:dimChoice[i]){ 
+  countMatrix[t,i]<-sum(read_file[,i]==groups[t,i])
+  }
+}
+
+#3. Calculate Probability
+i<-1
+for(i in i:d)
+{
+  probMatrix[,i]<-countMatrix[,i]/N
+}
+
+#.....................................
+#Entropy
+#.....................................
+
+i<-1
+for(i in i:d)
+{
+  temp<-matrix(0,dimChoice[i],d)
+  t<-1
+  tmpVal<-0
+  for(t in t:dimChoice[i]){
+  temp[t,i]<-probMatrix[t,i]
+  tmpVal<-((-1*temp[t,i])*(log(temp[t,i])/log(2)))+tmpVal
+  }
+  entropyMatrix[,i]<-tmpVal 
+}
+# BUG: Data set in column 74 with label of 0, which will output an entropy of NaN.
+# Revise this label to something more convient.
+
+
+#.....................................
+#Gini Index
+#.....................................
+i<-1
+for(i in i:d)
+{
+  temp<-matrix(0,dimChoice[i],d)
+  t<-1
+  tmpVal<-0
+  for(t in t:dimChoice[i]){
+    temp[t,i]<-probMatrix[t,i]
+    tmpVal<-((temp[t,i])^2)+tmpVal
+  }
+  giniIndexMatrix[,i]<-(1-tmpVal) 
+}
+#.....................................
+#Classification Error
+#.....................................
+i<-1
+for(i in i:d)
+{
+  temp<-matrix(0,dimChoice[i],d)
+  t<-1
+  for(t in t:dimChoice[i]){
+    temp[t,i]<-probMatrix[t,i]
+  }
+  classifErrMatrix[,i]<-(1-max(temp[,i])) 
+}
+
+#.......................................................................
+#Superset Probability Function 
+#.......................................................................
+#returns probability of all attributes within read_file
+
+
+ supersetProb<-function(index)
+ {
+     #TEST     
+     #index<-2
+     groupLength<-length(which(!(groups[,index]==0)))
+     probGroup<-matrix(0,maxSize,1)
+     countGroup<-matrix(0,maxSize,1)
+     output<-matrix(0,groupLength,1)  
+     
+     prob <-unique(read_file[index])  
+     t<-1
+     for (t in t:dimChoice[index])  #1:6
+     {
+         probDF <- data.frame(prob)[t,1] #Correct
+         probGroup[t,1]<-probDF
+         countGroup[t,1]<-sum(read_file[,index]==groups[t,index])
+         output[t,1]<-countGroup[t,1]/N
+     } 
+     
+     return(output)
+ }
+
+#.......................................................................
+#Subset Probability Function 
+#.......................................................................
+
+#Index- Initial index(Parent)
+#cmpIndex - Comparison index (Child)
+#subsetProb<-function(2,4)
+subsetProb<-function(index,cmpindex)
+{
+
+#TEST
+#index<-1
+#cmpindex<-2
+
+#Generates the unique groups
+groupLength<-length(which(!(groups[,index]==0)))
+groupLength2<-length(which(!(groups[,cmpindex]==0)))
+
+subsetPropMatrix<-matrix(0,groupLength,1)
+subsetCompareMatrix<-matrix(0,groupLength2,1)
+
+countGroup<-matrix(0,maxSize,groupLength)
+output<-matrix(0,maxSize,groupLength)
+labels<-matrix(0,N,groupLength)
+
+i<-1
+for(i in i:groupLength)
+{ 
+  subsetPropMatrix[i,1]<-sort(groups[(which(!(groups[,index]==0))),index])[i] #unique numbers {1 2}
+}
+
+i<-1
+for(i in i:groupLength2)
+{ 
+  subsetCompareMatrix[i,1]<-sort(groups[(which(!(groups[,cmpindex]==0))),cmpindex])[i] #{1,2,3,4,8,9}
+}
+
+#Generates the new index comparison
+i<-1
+for(i in i:N)
+{
+t<-1
+for(t in t:groupLength)
+  {
+  labels[i,t]<-read_file[(which((read_file[,index]==subsetPropMatrix[t,1]))),cmpindex][i]   #Displays Child Column data which are attributed to Parent Column data
+  }
+}
+labelsDF <- as.data.frame(labels)
+labelsDF[is.na(labelsDF)]<-0
+size<-matrix(0,groupLength,1)
+
+#Generates numbers for probabilities
+
+i<-1
+for(i in i:groupLength)
+{
+t<-1
+for(t in t:groupLength2)
+  {
+  countGroup[t,i]<-length(which(labelsDF[,i]==subsetCompareMatrix[t,1])) 
+  }
+size[i,1]<-sum(countGroup[,i])
+}
+ 
+
+  
+# Get new probabilities
+i<-1
+for(i in i:groupLength)
+{
+t<-1
+for(t in t:groupLength2)
+  {
+#The Output field displays the probability each of the specific fields within subsetPropMatrix in relation to the fields contained in the column {Col2} that are being paired to.
+output[t,i]<-countGroup[t,i]/size[i,1]    
+  }
+}
+
+
+outputDF <- as.data.frame(output)
+return(outputDF)  #Return statement Doesn't work; just call "output" and the correct results
+}
+
+
+#.......................................................................
+#Subset Size Function 
+#.......................................................................
+
+#Returns the size of each subset
+
+#Index- Initial index(Parent)
+#cmpIndex - Comparison index (Child)
+#subsetProb<-function(2,4)
+subsetSize<-function(index,cmpindex)
+{
+
+#TEST
+#index<-1
+#cmpindex<-2
+
+#Generates the unique groups
+groupLength<-length(which(!(groups[,index]==0)))
+groupLength2<-length(which(!(groups[,cmpindex]==0)))
+
+subsetPropMatrix<-matrix(0,groupLength,1)
+subsetCompareMatrix<-matrix(0,groupLength2,1)
+
+countGroup<-matrix(0,maxSize,groupLength)
+output<-matrix(0,maxSize,groupLength)
+labels<-matrix(0,N,groupLength)
+
+i<-1
+for(i in i:groupLength)
+{ 
+  subsetPropMatrix[i,1]<-sort(groups[(which(!(groups[,index]==0))),index])[i] #unique numbers {1 2}
+}
+
+i<-1
+for(i in i:groupLength2)
+{ 
+  subsetCompareMatrix[i,1]<-sort(groups[(which(!(groups[,cmpindex]==0))),cmpindex])[i] #{1,2,3,4,8,9}
+}
+
+#Generates the new index comparison
+i<-1
+for(i in i:N)
+{
+t<-1
+for(t in t:groupLength)
+  {
+  labels[i,t]<-read_file[(which((read_file[,index]==subsetPropMatrix[t,1]))),cmpindex][i]   #Displays Child Column data which are attributed to Parent Column data
+  }
+}
+labelsDF <- as.data.frame(labels)
+labelsDF[is.na(labelsDF)]<-0
+size<-matrix(0,groupLength,1)
+
+#Generates numbers for probabilities
+
+i<-1
+for(i in i:groupLength)
+{
+t<-1
+for(t in t:groupLength2)
+  {
+  countGroup[t,i]<-length(which(labelsDF[,i]==subsetCompareMatrix[t,1])) 
+  }
+size[i,1]<-sum(countGroup[,i])
+}
+ 
+return(size) 
+}
+
+
+#.....................................
+#Superset Entropy Function
+#.....................................
+
+#supersetEntropy(2)
+supersetEntropy<-function(index)
+{
+#TEST
+#index<-1
+groupLength<-length(which(!(groups[,index]==0)))
+tmpEntropy<-matrix(0,groupLength,1)
+supersetEntropy<-matrix(0,1,1)
+output<-matrix(0,groupLength,1) 
+
+  
+  output<-supersetProb(index)
+
+     t<-1
+     for(t in t:groupLength)
+      { 
+        if(!(output[t,1] == 0))
+        {              
+        tmpEntropy[t,1]<-((-1*output[t,1])*(log(output[t,1])/log(2)))
+        }
+        else
+        {
+        tmpEntropy[t,1]<- 0
+        }
+      }
+      supersetEntropy[,]<-sum(tmpEntropy)
+    
+
+  return(supersetEntropy)
+}
+
+#.....................................
+#Subset Entropy Function
+#.....................................
+
+#subsetEntropy(2,4)
+subsetEntropy<-function(index,cmpindex)
+{
+groupLength<-length(which(!(groups[,index]==0)))
+tmpEntropy<-matrix(0,groupLength,1)
+subsetEntropy<-matrix(0,1,groupLength)
+output<-matrix(0,maxSize,groupLength)
+
+
+  output<-subsetProb(index,cmpindex)
+  i<-1  
+  for(i in i:groupLength)
+     {
+     t<-1
+     for(t in t:groupLength)
+      { 
+        if(!(output[t,i] == 0))
+        {              
+        tmpEntropy[t,1]<-((-1*output[t,i])*(log(output[t,i])/log(2)))
+        }
+        else
+        {
+        tmpEntropy[t,1]<- 0
+        }
+      }
+    subsetEntropy[1,i]<-sum(tmpEntropy)
+     }
+  return(subsetEntropy)
+}
+
+#.....................................
+#Superset Gini Index Function
+#.....................................
+
+#supersetGiniIndex(2)
+supersetGiniIndex<-function(index)
+{
+#TEST
+#index<-1
+groupLength<-length(which(!(groups[,index]==0)))
+tmpGini<-matrix(0,groupLength,1)
+supersetGini<-matrix(0,1,1)
+output<-matrix(0,groupLength,1) 
+
+
+  output<-supersetProb(index)
+
+  t<-1
+  for(t in t:groupLength)
+  { 
+   if(!(output[t,1] == 0))
+   {              
+     tmpGini[t,1]<-((-1*output[t,1])^2)
+   }
+   else
+   {
+     tmpGini[t,1]<- 0
+   }
+  }
+    supersetGini[,]<-(1-(sum(tmpGini)))
+
+  return(supersetGini)
+}
+
+#.....................................
+#Subset Gini Index Function
+#.....................................
+
+#subsetGiniIndex(2,4)
+subsetGiniIndex<-function(index,cmpindex)
+{
+groupLength<-length(which(!(groups[,index]==0)))
+tmpGini<-matrix(0,groupLength,1)
+subsetGini<-matrix(0,1,groupLength)
+output<-matrix(0,maxSize,groupLength)
+
+
+  output<-subsetProb(index,cmpindex)
+  i<-1  
+  for(i in i:groupLength)
+     {
+     t<-1
+     for(t in t:groupLength)
+      { 
+        if(!(output[t,i] == 0))
+        {              
+        tmpGini[t,1]<-((-1*output[t,i])^2)
+        }
+        else
+        {
+        tmpGini[t,1]<- 0
+        }
+      }
+    subsetGini[1,i]<-(1-(sum(tmpGini)))
+     }
+  return(subsetGini)
+}
+
+#.....................................
+#Superset Classification Error Function
+#.....................................
+
+#supersetClassificationError(2)
+supersetClassificationError<-function(index)
+{
+groupLength<-length(which(!(groups[,index]==0)))
+tmpClassifErr<-matrix(0,groupLength,1)
+supersetClassifErr<-matrix(0,1,1)
+output<-matrix(0,groupLength,1) 
+
+
+output<-supersetProb(index)            
+supersetClassifErr[1,1]<-(1-max(output[,1])) 
+return(supersetClassifErr)
+}
+
+#.....................................
+#Subset Classification Error Function
+#.....................................
+
+#subsetClassificationError(2,4)
+subsetClassificationError<-function(index,cmpindex)
+{
+groupLength<-length(which(!(groups[,index]==0)))
+tmpClassifErr<-matrix(0,groupLength,1)
+subsetClassifErr<-matrix(0,1,groupLength)
+output<-matrix(0,maxSize,groupLength)
+
+
+  output<-subsetProb(index,cmpindex)
+  i<-1  
+  for(i in i:groupLength)
+     {             
+        subsetClassifErr[1,i]<-(1-max(output[,i])) 
+     }
+  return(subsetClassifErr)
+}
+
+
+#.....................................
+#Information Gain [Entropy] Function
+#.....................................
+
+
+#subsetEntropy(2,4)
+informationGainEntropy<-function(index,cmpindex)
+{
+
+#index = 2
+#cmpindex = 4
+
+groupLength<-length(which(!(groups[,index]==0)))
+
+tmpInfoGain<-matrix(0,groupLength,1)
+
+infoGainEntropy<-matrix(0,1,1)
+
+sizeOutput<-matrix(0,maxSize,groupLength)
+entropySupersetOutput<-matrix(0,1,1)
+entropySubsetOutput<-matrix(0,maxSize,groupLength)
+
+sizeOutput<-subsetSize(index,cmpindex)
+entropySupersetOutput<-supersetEntropy(index)
+entropySubsetOutput<-subsetEntropy(index,cmpindex)
+
+  i<-1  
+  for(i in i:groupLength)
+  {     
+        tmpInfoGain[i,1]<-((sizeOutput[i,1]/N) * entropySubsetOutput[1,i])
+  }
+tmpVal<-sum(tmpInfoGain)
+infoGainEntropy[,]<- entropySupersetOutput - tmpVal   
+
+
+  return(infoGainEntropy)
+}
+
+
+#.....................................
+#Information Gain [Gini Index] Function
+#.....................................
+
+
+#subsetEntropy(2,4)
+informationGainGiniIndex<-function(index,cmpindex)
+{
+
+#index = 2
+#cmpindex = 4
+
+groupLength<-length(which(!(groups[,index]==0)))
+
+tmpInfoGain<-matrix(0,groupLength,1)
+
+infoGainEntropy<-matrix(0,1,1)
+
+sizeOutput<-matrix(0,maxSize,groupLength)
+giniSupersetOutput<-matrix(0,1,1)
+giniSubsetOutput<-matrix(0,maxSize,groupLength)
+
+sizeOutput<-subsetSize(index,cmpindex)
+giniSupersetOutput<-supersetGiniIndex(index)
+giniSubsetOutput<-subsetGiniIndex(index,cmpindex)
+
+  i<-1  
+  for(i in i:groupLength)
+  {     
+        tmpInfoGain[i,1]<-((sizeOutput[i,1]/N) * giniSubsetOutput[1,i])
+  }
+tmpVal<-sum(tmpInfoGain)
+infoGainEntropy[,]<- giniSupersetOutput - tmpVal   
+
+
+  return(infoGainEntropy)
+}
+
+
+#.....................................
+#Information Gain [Classification Error] Function
+#.....................................
+
+
+#subsetEntropy(2,4)
+informationGainClassificationError<-function(index,cmpindex)
+{
+
+#index = 2
+#cmpindex = 4
+
+groupLength<-length(which(!(groups[,index]==0)))
+
+tmpInfoGain<-matrix(0,groupLength,1)
+
+infoGainEntropy<-matrix(0,1,1)
+
+sizeOutput<-matrix(0,maxSize,groupLength)
+classifErrSupersetOutput<-matrix(0,1,1)
+classifErrSubsetOutput<-matrix(0,maxSize,groupLength)
+
+sizeOutput<-subsetSize(index,cmpindex)
+classifErrSupersetOutput<-supersetClassificationError(index)
+classifErrSubsetOutput<-subsetClassificationError(index,cmpindex)
+
+  i<-1  
+  for(i in i:groupLength)
+  {     
+        tmpInfoGain[i,1]<-((sizeOutput[i,1]/N) * classifErrSubsetOutput[1,i])
+  }
+tmpVal<-sum(tmpInfoGain)
+infoGainEntropy[,]<- classifErrSupersetOutput - tmpVal   
+
+
+  return(infoGainEntropy)
+}

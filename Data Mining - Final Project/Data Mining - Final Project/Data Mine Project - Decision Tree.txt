@@ -1,0 +1,51 @@
+#Returns the size of each subset
+
+#Index- Initial index(Parent)
+#cmpIndex - Comparison index (Child)
+#subsetProb<-function(2,4)
+
+
+compareTrees<-function(index,cmpindex)
+{
+
+#TEST
+#index<-1
+#cmpindex<-2
+
+#Generates the unique groups
+
+infoGainEntropy<-matrix(0,N,N)
+infoGainGini<-matrix(0,N,N)
+infoGainClassifErr<-matrix(0,N,N)
+
+i<-1
+for(i in i:N) #Replace with N
+{ 
+  initialClass<-names(read_file)[i]   
+  t<-1   
+  for(t in t:N) #Replace with N
+  { 
+     comparedClass<-names(read_file)[t]
+     
+     #Prints which classes are being related
+     #print("Initial Class:")
+     print(initialClass)
+     #print("Compares:")
+     print(comparedClass)    
+
+     #infoGainClassifErr[i,t]<-informationGainClassificationError(i,t)
+     #infoGainGini[i,t]<-informationGainGiniIndex(i,t)
+     infoGainEntropy[i,t]<-informationGainEntropy(i,t)
+
+
+  }
+}
+#maxInfoGainClassifErr<-max(infoGainClassifErr)
+#maxInfoGainGini<-max(infoGainGini)
+
+maxInfoGainEntropy<-max(infoGainEntropy)
+#labels <- matrix(0,N,d)     #inital label matrix
+#label = which(read_network[1]==maxInfoGainEntropy)  
+return(size) 
+}
+
